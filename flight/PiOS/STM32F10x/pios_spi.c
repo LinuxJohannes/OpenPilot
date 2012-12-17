@@ -307,6 +307,33 @@ int32_t PIOS_SPI_ReleaseBus(uint32_t spi_id)
 }
 
 /**
+ * Release the SPI bus from an ISR.
+ * \param[in] spi SPI number (0 or 1)
+ * \param[in] pointer which receives if a task has been woken
+ * \return 0 if no error
+ */
+int32_t PIOS_SPI_ReleaseBusISR(uint32_t spi_id, bool *woken)
+{
+#if defined(PIOS_INCLUDE_FREERTOS)
+	portBASE_TYPE xHigherPriorityTaskWoken = pdFALSE;
+	struct pios_spi_dev * spi_dev = (struct pios_spi_dev *)spi_id;
+
+	bool valid = PIOS_SPI_validate(spi_dev);
+	PIOS_Assert(valid)
+
+	xSemaphoreGiveFromISR(spi_dev->busy, &xHigherPriorityTaskWoken);
+
+	*woken = *woken || (xHigherPriorityTaskWoken == pdTRUE);
+#else
+	struct pios_spi_dev * spi_dev = (struct pios_spi_dev *)spi_id;
+	PIOS_IRQ_Disable();
+	spi_dev->busy = 0;
+	PIOS_IRQ_Enable();
+#endif
+	return 0;
+}
+
+/**
  * Controls the RC (Register Clock alias Chip Select) pin of a SPI port
  * \param[in] spi SPI number (0 or 1)
  * \param[in] pin_value 0 or 1
