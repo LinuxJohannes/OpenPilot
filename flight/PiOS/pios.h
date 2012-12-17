@@ -127,6 +127,9 @@
 #if defined(PIOS_INCLUDE_L3GD20)
 #include <pios_l3gd20.h>
 #endif
+#if defined(PIOS_INCLUDE_LSM330)
+#include <pios_lsm330.h>
+#endif
 #if defined(PIOS_INCLUDE_MS5611)
 #include <pios_ms5611.h>
 #endif
@@ -143,6 +146,11 @@
 #if defined(PIOS_INCLUDE_FLASH)
 #include <pios_flash_jedec.h>
 #include <pios_flashfs_objlist.h>
+#endif
+
+#if defined(PIOS_INCLUDE_FLASH_INTERNAL)
+#include <pios_flash_internal.h>
+#include <pios_flashfs_compact.h>
 #endif
 
 #if defined(PIOS_INCLUDE_BL_HELPER)
