@@ -847,7 +847,7 @@ all_$(1)_clean: $$(addsuffix _clean, $$(filter bu_$(1), $$(BU_TARGETS)))
 all_$(1)_clean: $$(addsuffix _clean, $$(filter ef_$(1), $$(EF_TARGETS)))
 endef
 
-ALL_BOARDS := coptercontrol pipxtreme simposix
+ALL_BOARDS := coptercontrol naze32 pipxtreme simposix
 
 # SimPosix only builds on Linux so drop it from the list for
 # all other platforms.
@@ -857,6 +857,7 @@ endif
 
 # Friendly names of each board (used to find source tree)
 coptercontrol_friendly := CopterControl
+naze32_friendly := Naze32
 pipxtreme_friendly     := PipXtreme
 revolution_friendly    := Revolution
 simposix_friendly      := SimPosix
@@ -869,6 +870,7 @@ endif
 
 # Short hames of each board (used to display board name in parallel builds)
 coptercontrol_short    := 'cc  '
+naze32_short           := 'naze'
 pipxtreme_short        := 'pipx'
 revolution_short       := 'revo'
 simposix_short         := 'posx'
@@ -884,6 +886,11 @@ EF_BOARDS  := $(ALL_BOARDS)
 #        updater yet so we need to filter them out to prevent errors.
 BL_BOARDS  := $(filter-out ins, $(BL_BOARDS))
 BU_BOARDS  := $(filter-out ins, $(BU_BOARDS))
+
+# Naze32 doesn't have a BU or EF target so we need to
+# filter them out to prevent errors on the all_flight target.
+BU_BOARDS  := $(filter-out naze32, $(BU_BOARDS))
+EF_BOARDS  := $(filter-out naze32, $(EF_BOARDS))
 
 # SimPosix doesn't have a BL, BU or EF target so we need to
 # filter them out to prevent errors on the all_flight target.
