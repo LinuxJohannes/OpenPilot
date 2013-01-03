@@ -373,7 +373,7 @@ int32_t PIOS_I2C_Transfer(uint32_t i2c_id, const struct pios_i2c_txn txn_list[],
 #ifdef USE_FREERTOS
 	/* Lock the bus */
 	portTickType timeout = i2c_adapter->cfg->transfer_timeout_ms / portTICK_RATE_MS;
-	semaphore_success &= (xSemaphoreTake(i2c_adapter->sem_busy, timeout) == pdTRUE);
+	semaphore_success = (xSemaphoreTake(i2c_adapter->sem_busy, timeout) == pdTRUE);
 	if(!semaphore_success)
 		return -2;
 #endif /* USE_FREERTOS */
@@ -543,10 +543,10 @@ void PIOS_I2C_EV_IRQ_Handler(uint32_t i2c_id)
 			// Disable EVT and ERR interrupts while bus inactive
 			I2C_ITConfig(i2c_adapter->cfg->regs, I2C_IT_EVT | I2C_IT_ERR, DISABLE);
 		}
-#ifdef USE_FREERTOS
+#if defined(USE_FREERTOS)
 		if (xSemaphoreGiveFromISR(i2c_adapter->sem_ready, &pxHigherPriorityTaskWoken) != pdTRUE) {
 #if defined(I2C_HALT_ON_ERRORS)
-		PIOS_DEBUG_Assert(0);
+			PIOS_DEBUG_Assert(0);
 #endif /* I2C_HALT_ON_ERRORS */
 		}
 		portEND_SWITCHING_ISR(pxHigherPriorityTaskWoken);	/* FIXME: is this the right place for this? */
@@ -567,6 +567,10 @@ void PIOS_I2C_ER_IRQ_Handler(uint32_t i2c_id)
 	PIOS_Assert(valid);
 
 	volatile uint32_t SR1Register, SR2Register;
+	
+#ifdef USE_FREERTOS
+	signed portBASE_TYPE pxHigherPriorityTaskWoken = pdFALSE;
+#endif
 
 	// Read the I2C1 status register
 	SR1Register = i2c_adapter->cfg->regs->SR1;
@@ -606,6 +610,14 @@ void PIOS_I2C_ER_IRQ_Handler(uint32_t i2c_id)
 
 	//reset all the error bits to clear the interrupt
 	i2c_adapter->cfg->regs->SR1 &= ~0x0F00;
+#if defined(USE_FREERTOS)
+	if (xSemaphoreGiveFromISR(i2c_adapter->sem_ready, &pxHigherPriorityTaskWoken) != pdTRUE) {
+#if defined(I2C_HALT_ON_ERRORS)
+		PIOS_DEBUG_Assert(0);
+#endif /* I2C_HALT_ON_ERRORS */
+	}
+	portEND_SWITCHING_ISR(pxHigherPriorityTaskWoken);	/* FIXME: is this the right place for this? */
+#endif /* USE_FREERTOS */
 	busy = 0;
 }
 
