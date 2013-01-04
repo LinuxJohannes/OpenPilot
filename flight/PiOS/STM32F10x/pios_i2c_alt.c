@@ -543,6 +543,7 @@ void PIOS_I2C_EV_IRQ_Handler(uint32_t i2c_id)
 			// Disable EVT and ERR interrupts while bus inactive
 			I2C_ITConfig(i2c_adapter->cfg->regs, I2C_IT_EVT | I2C_IT_ERR, DISABLE);
 		}
+		busy = 0;
 #if defined(USE_FREERTOS)
 		if (xSemaphoreGiveFromISR(i2c_adapter->sem_ready, &pxHigherPriorityTaskWoken) != pdTRUE) {
 #if defined(I2C_HALT_ON_ERRORS)
@@ -551,7 +552,6 @@ void PIOS_I2C_EV_IRQ_Handler(uint32_t i2c_id)
 		}
 		portEND_SWITCHING_ISR(pxHigherPriorityTaskWoken);	/* FIXME: is this the right place for this? */
 #endif /* USE_FREERTOS */
-		busy = 0;
 	}
 }
 
@@ -610,6 +610,7 @@ void PIOS_I2C_ER_IRQ_Handler(uint32_t i2c_id)
 
 	//reset all the error bits to clear the interrupt
 	i2c_adapter->cfg->regs->SR1 &= ~0x0F00;
+	busy = 0;
 #if defined(USE_FREERTOS)
 	if (xSemaphoreGiveFromISR(i2c_adapter->sem_ready, &pxHigherPriorityTaskWoken) != pdTRUE) {
 #if defined(I2C_HALT_ON_ERRORS)
@@ -618,7 +619,6 @@ void PIOS_I2C_ER_IRQ_Handler(uint32_t i2c_id)
 	}
 	portEND_SWITCHING_ISR(pxHigherPriorityTaskWoken);	/* FIXME: is this the right place for this? */
 #endif /* USE_FREERTOS */
-	busy = 0;
 }
 
 #endif

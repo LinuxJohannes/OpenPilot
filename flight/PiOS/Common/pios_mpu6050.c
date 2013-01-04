@@ -426,8 +426,9 @@ bool PIOS_MPU6050_IRQHandler(void)
 	portBASE_TYPE xHigherPriorityTaskWoken = pdFALSE;
 
 	xSemaphoreGiveFromISR(dev->data_ready_sema, &xHigherPriorityTaskWoken);
+	portEND_SWITCHING_ISR(xHigherPriorityTaskWoken);
 
-	return xHigherPriorityTaskWoken == pdTRUE;
+	return (xHigherPriorityTaskWoken == pdTRUE);
 }
 
 void PIOS_MPU6050_Task(void *parameters)
