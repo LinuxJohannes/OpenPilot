@@ -74,7 +74,7 @@ static const struct pios_exti_cfg pios_exti_mpu6050_cfg __exti_config = {
 	.irq = {
 		.init = {
 			.NVIC_IRQChannel = EXTI15_10_IRQn,
-			.NVIC_IRQChannelPreemptionPriority = PIOS_IRQ_PRIO_LOW,
+			.NVIC_IRQChannelPreemptionPriority = PIOS_IRQ_PRIO_HIGH,
 			.NVIC_IRQChannelSubPriority = 0,
 			.NVIC_IRQChannelCmd = ENABLE,
 		},
@@ -92,7 +92,7 @@ static const struct pios_exti_cfg pios_exti_mpu6050_cfg __exti_config = {
 static const struct pios_mpu6050_cfg pios_mpu6050_cfg = {
 	.exti_cfg = &pios_exti_mpu6050_cfg,
 	.Fifo_store = PIOS_MPU6050_FIFO_TEMP_OUT | PIOS_MPU6050_FIFO_GYRO_X_OUT | PIOS_MPU6050_FIFO_GYRO_Y_OUT | PIOS_MPU6050_FIFO_GYRO_Z_OUT,
-	// Clock at 8 khz, downsampled by 8 for 1khz
+	// Clock at 1 khz, downsampled by 3 for 333hz
 	.Smpl_rate_div = 2, // 333 Hz
 	.interrupt_cfg = PIOS_MPU6050_INT_CLR_ANYRD,
 	.interrupt_en = PIOS_MPU6050_INTEN_DATA_RDY,
