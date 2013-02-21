@@ -32,6 +32,14 @@
 
 #define PIOS_I2C_DIAGNOSTICS
 
+#define I2C_CR1_FLAG_SWRST	((uint32_t)0x10008000)
+#define I2C_CR1_FLAG_ALERT	((uint32_t)0x10002000)
+#define I2C_CR1_FLAG_PEC	((uint32_t)0x10001000)
+#define I2C_CR1_FLAG_POS	((uint32_t)0x10000800)
+#define I2C_CR1_FLAG_ACK	((uint32_t)0x10000400)
+#define I2C_CR1_FLAG_STOP	((uint32_t)0x10000200)
+#define I2C_CR1_FLAG_START	((uint32_t)0x10000100)
+
 #include <stdbool.h>
 
 /* Global Types */

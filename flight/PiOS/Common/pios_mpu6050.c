@@ -410,16 +410,16 @@ static int32_t PIOS_MPU6050_FifoDepth(void)
 /**
 * @brief IRQ Handler.  Read all the data from onboard buffer
 */
-uint32_t mpu6050_irq = 0;
+//uint32_t mpu6050_irq = 0;
 int32_t mpu6050_count;
-uint32_t mpu6050_fifo_backup = 0;
+//uint32_t mpu6050_fifo_backup = 0;
 
-uint8_t mpu6050_last_read_count = 0;
-uint32_t mpu6050_fails = 0;
+//uint8_t mpu6050_last_read_count = 0;
+//uint32_t mpu6050_fails = 0;
 
-uint32_t mpu6050_interval_us;
-uint32_t mpu6050_time_us;
-uint32_t mpu6050_transfer_size;
+//uint32_t mpu6050_interval_us;
+//uint32_t mpu6050_time_us;
+//uint32_t mpu6050_transfer_size;
 
 bool PIOS_MPU6050_IRQHandler(void)
 {
@@ -439,9 +439,9 @@ void PIOS_MPU6050_Task(void *parameters)
 		if (xSemaphoreTake(dev->data_ready_sema, portMAX_DELAY) != pdTRUE)
 			continue;
 
-		static uint32_t timeval;
-		mpu6050_interval_us = PIOS_DELAY_DiffuS(timeval);
-		timeval = PIOS_DELAY_GetRaw();
+		//static uint32_t timeval;
+		//mpu6050_interval_us = PIOS_DELAY_DiffuS(timeval);
+		//timeval = PIOS_DELAY_GetRaw();
 
 		if(!mpu6050_configured)
 			continue;
@@ -453,17 +453,17 @@ void PIOS_MPU6050_Task(void *parameters)
 		static uint8_t mpu6050_rec_buf[sizeof(struct pios_mpu6050_data)];
 		
 		if (PIOS_MPU6050_Read(PIOS_MPU6050_FIFO_REG, mpu6050_rec_buf, sizeof(mpu6050_rec_buf)) < 0) {
-			mpu6050_fails++;
+			//mpu6050_fails++;
 			continue;
 		}
 
 		// In the case where extras samples backed up grabbed an extra
 		if (mpu6050_count >= (sizeof(mpu6050_rec_buf) * 2)) {
-			mpu6050_fifo_backup++;
+			//mpu6050_fifo_backup++;
 
 			//overwrite until the newest entry is present in mpu6050_rec_buf
 			if (PIOS_MPU6050_Read(PIOS_MPU6050_FIFO_REG, mpu6050_rec_buf, sizeof(mpu6050_rec_buf)) < 0) {
-				mpu6050_fails++;
+				//mpu6050_fails++;
 				continue;
 			}
 		}
@@ -487,9 +487,9 @@ void PIOS_MPU6050_Task(void *parameters)
 	
 		xQueueSend(dev->queue, (void *) &data, 0);
 
-		mpu6050_irq++;
+		//mpu6050_irq++;
 
-		mpu6050_time_us = PIOS_DELAY_DiffuS(timeval);
+		//mpu6050_time_us = PIOS_DELAY_DiffuS(timeval);
 	}
 }
 

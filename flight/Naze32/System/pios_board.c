@@ -93,7 +93,7 @@ static const struct pios_mpu6050_cfg pios_mpu6050_cfg = {
 	.exti_cfg = &pios_exti_mpu6050_cfg,
 	.Fifo_store = PIOS_MPU6050_FIFO_TEMP_OUT | PIOS_MPU6050_FIFO_GYRO_X_OUT | PIOS_MPU6050_FIFO_GYRO_Y_OUT | PIOS_MPU6050_FIFO_GYRO_Z_OUT,
 	// Clock at 1 khz, downsampled by 3 for 333hz
-	.Smpl_rate_div = 2, // 333 Hz
+	.Smpl_rate_div = 1, // 500 Hz
 	.interrupt_cfg = PIOS_MPU6050_INT_CLR_ANYRD,
 	.interrupt_en = PIOS_MPU6050_INTEN_DATA_RDY,
 	.User_ctl = PIOS_MPU6050_USERCTL_FIFO_EN,
