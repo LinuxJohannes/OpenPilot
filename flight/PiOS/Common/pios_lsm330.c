@@ -163,7 +163,7 @@ static void PIOS_LSM330_Acc_Config(struct pios_lsm330_acc_cfg const * cfg)
 	// Mode and Full-scale selection
 	//  | BDU | BLE | FS1 | FS0 | HR | 0 | 0 | SIM |
 	//   HR = 1
-	while (PIOS_LSM330_Acc_SetReg(PIOS_LSM330_CTRL_REG4_G, 0b00001000 | cfg->range) != 0);
+	while (PIOS_LSM330_Acc_SetReg(PIOS_LSM330_CTRL_REG4_A, 0b00001000 | cfg->range) != 0);
 
 	// Output Data Rate, Power Mode and Axies configuratios
 	//   | ODR3 | ODR2 | ODR1 | ODR0 | LPen | Zen | Yen | Xen |
