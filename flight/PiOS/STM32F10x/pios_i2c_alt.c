@@ -6,33 +6,34 @@
  * @brief STM32 Hardware dependent I2C functionality
  * @{
  *
- * @file       pios_i2c.c  
+ * @file       pios_i2c.c
  * @author     The OpenPilot Team, http://www.openpilot.org Copyright (C) 2010.
  * @brief      I2C Enable/Disable routines
  * @see        The GNU Public License (GPL) Version 3
- * 
+ *
  *****************************************************************************/
-/* 
- * This program is free software; you can redistribute it and/or modify 
- * it under the terms of the GNU General Public License as published by 
- * the Free Software Foundation; either version 3 of the License, or 
+/*
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
  * (at your option) any later version.
- * 
- * This program is distributed in the hope that it will be useful, but 
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY 
- * or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License 
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+ * or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
  * for more details.
- * 
- * You should have received a copy of the GNU General Public License along 
- * with this program; if not, write to the Free Software Foundation, Inc., 
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
  * 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 
-/* 
+/*
  ******************************************************************************
  * Quick and dirty workaround of PIOS I2C HAL for STM32F10X
  *
- * The majority of the code is taken from baseflight
+ * The majority of the code is taken from STM32InertialMonitor
+ * https://github.com/Laurenceb/STM32InertialMonitor
  *
  ******************************************************************************
  */
@@ -43,12 +44,17 @@
 #if defined(PIOS_INCLUDE_I2C)
 
 #if defined(PIOS_INCLUDE_FREERTOS)
-//#define USE_FREERTOS
+#define USE_FREERTOS
 #endif
 
 #include <pios_i2c_priv.h>
 
+#ifdef USE_FREERTOS
+#define I2C_DEFAULT_TIMEOUT 50
+#else
 #define I2C_DEFAULT_TIMEOUT 30000
+#endif
+
 static volatile uint16_t i2cErrorCount = 0;
 
 static volatile bool error = false;
@@ -57,10 +63,8 @@ static volatile bool busy;
 static volatile uint8_t addr;
 static volatile uint8_t reg;
 static volatile uint8_t bytes;
-static volatile uint8_t writing;
-static volatile uint8_t reading;
-static volatile uint8_t* write_p;
-static volatile uint8_t* read_p;
+static volatile uint8_t dir;
+static volatile uint8_t* buf_p;
 
 static void i2c_adapter_fsm_init(struct pios_i2c_adapter *i2c_adapter);
 static void i2c_adapter_reset_bus(struct pios_i2c_adapter *i2c_adapter);
@@ -142,30 +146,19 @@ static void i2c_adapter_reset_bus(struct pios_i2c_adapter *i2c_adapter)
  */
 bool i2cWrite(struct pios_i2c_adapter *i2c_adapter, uint8_t addr_, uint8_t reg_, uint8_t len_, uint8_t *data)
 {
-	uint8_t i;
-	uint8_t my_data[16];
 #ifdef USE_FREERTOS
 	portTickType timeout = i2c_adapter->cfg->transfer_timeout_ms / portTICK_RATE_MS;
 #else
 	uint32_t timeout = I2C_DEFAULT_TIMEOUT;
 #endif
 
-	addr    = addr_ << 1;
-	reg     = reg_;
-	writing = 1;
-	reading = 0;
-	write_p = my_data;
-	read_p  = my_data;
-	bytes   = len_;
-	busy    = 1;
-	error   = false;
-
-	// too long
-	if (len_ > 16)
-		return false;
-
-	for (i = 0; i < len_; i++)
-		my_data[i] = data[i];
+	addr  = addr_ << 1;
+	reg   = reg_;
+	dir   = I2C_Direction_Transmitter;
+	buf_p = data;
+	bytes = len_;
+	busy  = 1;
+	error = false;
 
 	if (!(i2c_adapter->cfg->regs->CR2 & I2C_IT_EVT)) {        //if we are restarting the driver
 		if (!(i2c_adapter->cfg->regs->CR1 & 0x0100)) {        // ensure sending a start
@@ -180,7 +173,6 @@ bool i2cWrite(struct pios_i2c_adapter *i2c_adapter, uint8_t addr_, uint8_t reg_,
 		i2cErrorCount++;
 		// reinit peripheral + clock out garbage
 		i2c_adapter_fsm_init(i2c_adapter);
-		return false;
 	}
 #else
 	while (busy && --timeout > 0);
@@ -188,7 +180,6 @@ bool i2cWrite(struct pios_i2c_adapter *i2c_adapter, uint8_t addr_, uint8_t reg_,
 		i2cErrorCount++;
 		// reinit peripheral + clock out garbage
 		i2c_adapter_fsm_init(i2c_adapter);
-		return false;
 	}
 #endif /* USE_FREERTOS */
 
@@ -207,15 +198,13 @@ bool i2cRead(struct pios_i2c_adapter *i2c_adapter, uint8_t addr_, uint8_t reg_, 
 	uint32_t timeout = I2C_DEFAULT_TIMEOUT;
 #endif
 
-	addr    = addr_ << 1;
-	reg     = reg_;
-	writing = 0;
-	reading = 1;
-	read_p  = buf;
-	write_p = buf;
-	bytes   = len;
-	busy    = 1;
-	error   = false;
+	addr  = addr_ << 1;
+	reg   = reg_;
+	dir   = I2C_Direction_Receiver;
+	buf_p = buf;
+	bytes = len;
+	busy  = 1;
+	error = false;
 
 	if (!(i2c_adapter->cfg->regs->CR2 & I2C_IT_EVT)) {			//if we are restarting the driver
 		if (!(i2c_adapter->cfg->regs->CR1 & 0x0100)) {			// ensure sending a start
@@ -230,7 +219,6 @@ bool i2cRead(struct pios_i2c_adapter *i2c_adapter, uint8_t addr_, uint8_t reg_, 
 		i2cErrorCount++;
 		// reinit peripheral + clock out garbage
 		i2c_adapter_fsm_init(i2c_adapter);
-		return false;
 	}
 #else
 	while (busy && --timeout > 0);
@@ -238,7 +226,6 @@ bool i2cRead(struct pios_i2c_adapter *i2c_adapter, uint8_t addr_, uint8_t reg_, 
 		i2cErrorCount++;
 		// reinit peripheral + clock out garbage
 		i2c_adapter_fsm_init(i2c_adapter);
-		return false;
 	}
 #endif /* USE_FREERTOS */
 
@@ -249,7 +236,7 @@ bool i2cRead(struct pios_i2c_adapter *i2c_adapter, uint8_t addr_, uint8_t reg_, 
  * Logs the last N state transitions and N IRQ events due to
  * an error condition
  * \param[out] data address where to copy the pios_i2c_fault_history structure to
- * \param[out] counts three uint16 that receive the bad event, fsm, and error irq 
+ * \param[out] counts three uint16 that receive the bad event, fsm, and error irq
  * counts
  */
 void PIOS_I2C_GetDiagnostics(struct pios_i2c_fault_history * data, uint8_t * counts)
@@ -309,14 +296,16 @@ int32_t PIOS_I2C_Init(uint32_t * i2c_id, const struct pios_i2c_adapter_cfg * cfg
 	i2c_adapter->cfg = cfg;
 
 #ifdef USE_FREERTOS
-	/* 
+	/*
 	 * Must be done prior to calling i2c_adapter_fsm_init()
 	 * since the sem_ready mutex is used in the initial state.
 	 */
 	vSemaphoreCreateBinary(i2c_adapter->sem_ready);
+	xSemaphoreTake(i2c_adapter->sem_ready, I2C_DEFAULT_TIMEOUT / portTICK_RATE_MS);
 	i2c_adapter->sem_busy = xSemaphoreCreateMutex();
 #else
-	//i2c_adapter->busy = 0;
+	i2c_adapter->sem_ready = NULL;
+	i2c_adapter->sem_busy = NULL;
 #endif // USE_FREERTOS
 
 	/* Enable the associated peripheral clock */
@@ -343,7 +332,7 @@ int32_t PIOS_I2C_Init(uint32_t * i2c_id, const struct pios_i2c_adapter_cfg * cfg
 	/* Configure and enable I2C interrupts */
 	NVIC_Init(&(i2c_adapter->cfg->event.init));
 	NVIC_Init(&(i2c_adapter->cfg->error.init));
-	
+
 	/* No error */
 	return 0;
 
@@ -354,7 +343,7 @@ out_fail:
 /**
  * @brief Perform a series of I2C transactions
  * @returns 0 if success or error code
- * @retval -1 for failed transaction 
+ * @retval -1 for failed transaction
  * @retval -2 for failure to get semaphore
  */
 int32_t PIOS_I2C_Transfer(uint32_t i2c_id, const struct pios_i2c_txn txn_list[], uint32_t num_txns)
@@ -434,10 +423,10 @@ void PIOS_I2C_EV_IRQ_Handler(uint32_t i2c_id)
 	signed portBASE_TYPE pxHigherPriorityTaskWoken = pdFALSE;
 #endif
 
-	// Registers
+	// I2C Status Registers
 	volatile uint32_t SR1Reg;
 	volatile uint32_t SR2Reg;
-	
+
 	SR1Reg = I2C_ReadRegister(i2c_adapter->cfg->regs, I2C_Register_SR1);
 
 	//we just sent a start - EV5 in ref manual
@@ -445,55 +434,57 @@ void PIOS_I2C_EV_IRQ_Handler(uint32_t i2c_id)
 		i2c_adapter->cfg->regs->CR1 &= ~I2C_CR1_FLAG_POS;      //reset the POS bit so ACK/NACK applied to the current byte
 		I2C_AcknowledgeConfig(i2c_adapter->cfg->regs, ENABLE); //make sure ACK is on
 		index = 0;              //reset the index
-		if (reading && (subaddress_sent || 0xFF == reg)) {     //we have sent the subaddr
-			subaddress_sent = 1; //make sure this is set in case of no subaddress, so following code runs correctly
+		if ((dir == I2C_Direction_Receiver) && subaddress_sent) {     //we have sent the subaddr
 			if (bytes == 2) {
 				i2c_adapter->cfg->regs->CR1 |= I2C_CR1_FLAG_POS; //set the POS bit so NACK applied to the final byte in the two byte read
 			}
 			I2C_Send7bitAddress(i2c_adapter->cfg->regs, addr, I2C_Direction_Receiver); //send the address and set hardware mode
 		} else { //direction is Tx, or we havent sent the sub and rep start
 			I2C_Send7bitAddress(i2c_adapter->cfg->regs, addr, I2C_Direction_Transmitter); //send the address and set hardware mode
-			if (reg != 0xFF) { //0xFF as subaddress means it will be ignored, in Tx or Rx mode
-				index = -1;    //send a subaddress
-			}
+			index = -1;    //send a subaddress
 		}
 	//we just sent the address - EV6, EV6_1 or EV6_3 in ref manual
 	} else if (SR1Reg & I2C_FLAG_ADDR) {
-		//Read SR2 to clear ADDR
-		SR2Reg = I2C_ReadRegister(i2c_adapter->cfg->regs, I2C_Register_SR2);
-		if (SR2Reg) { ; }
-		if ((bytes == 1) && reading && subaddress_sent) {              //we are receiving 1 byte - EV6_3
+		if ((bytes == 1) && (dir == I2C_Direction_Receiver) && subaddress_sent) {              //we are receiving 1 byte - EV6_3
 			I2C_AcknowledgeConfig(i2c_adapter->cfg->regs, DISABLE);    //turn off ACK
+			//Read SR2 to clear ADDR
+			SR2Reg = I2C_ReadRegister(i2c_adapter->cfg->regs, I2C_Register_SR2);
+			if (SR2Reg) { ; }
 			I2C_GenerateSTOP(i2c_adapter->cfg->regs, ENABLE);          //program the stop
 			I2C_ITConfig(i2c_adapter->cfg->regs, I2C_IT_BUF, ENABLE);  //allow us to have an EV7
 			final_stop = 1;
-		} else if ((bytes == 2) && reading && subaddress_sent) {       //rx 2 bytes - EV6_1
-			I2C_AcknowledgeConfig(i2c_adapter->cfg->regs, DISABLE);    //turn off ACK
-			I2C_ITConfig(i2c_adapter->cfg->regs, I2C_IT_BUF, DISABLE); //disable TXE to allow the buffer to fill
-		} else if ((bytes == 3) && reading && subaddress_sent) {       //rx 3 bytes
-			I2C_ITConfig(i2c_adapter->cfg->regs, I2C_IT_BUF, DISABLE); //make sure RXNE disabled so we get a BTF in two bytes time
-		} else { //receiving greater than three bytes, sending subaddress, or transmitting
-			I2C_ITConfig(i2c_adapter->cfg->regs, I2C_IT_BUF, ENABLE);
+		} else {
+			//Read SR2 to clear ADDR
+			SR2Reg = I2C_ReadRegister(i2c_adapter->cfg->regs, I2C_Register_SR2);
+			if (SR2Reg) { ; }
+			if ((bytes == 2) && (dir == I2C_Direction_Receiver) && subaddress_sent) {       //rx 2 bytes - EV6_1
+				I2C_AcknowledgeConfig(i2c_adapter->cfg->regs, DISABLE);    //turn off ACK
+				I2C_ITConfig(i2c_adapter->cfg->regs, I2C_IT_BUF, DISABLE); //disable TXE to allow the buffer to fill
+			} else if ((bytes == 3) && (dir == I2C_Direction_Receiver) && subaddress_sent) {       //rx 3 bytes
+				I2C_ITConfig(i2c_adapter->cfg->regs, I2C_IT_BUF, DISABLE); //make sure RXNE disabled so we get a BTF in two bytes time
+			} else { //receiving greater than three bytes, sending subaddress, or transmitting
+				I2C_ITConfig(i2c_adapter->cfg->regs, I2C_IT_BUF, ENABLE);
+			}
 		}
 	//Byte transfer finished - EV7_2, EV7_3 or EV8_2
 	} else if (SR1Reg & I2C_FLAG_BTF) {
 		final_stop = 1;
 		//EV7_2, EV7_3
-		if (reading && subaddress_sent) {
+		if ((dir == I2C_Direction_Receiver) && subaddress_sent) {
 			if (bytes > 2) { //EV7_2
-				I2C_AcknowledgeConfig(i2c_adapter->cfg->regs, DISABLE);    //turn off ACK
-				read_p[index++] = I2C_ReceiveData(i2c_adapter->cfg->regs); //read data N-2
-				I2C_GenerateSTOP(i2c_adapter->cfg->regs, ENABLE);          //program the Stop
-				read_p[index++] = I2C_ReceiveData(i2c_adapter->cfg->regs); //read data N-1
-				I2C_ITConfig(i2c_adapter->cfg->regs, I2C_IT_BUF, ENABLE);  //enable TXE to allow the final EV7
+				I2C_AcknowledgeConfig(i2c_adapter->cfg->regs, DISABLE);   //turn off ACK
+				buf_p[index++] = I2C_ReceiveData(i2c_adapter->cfg->regs); //read data N-2
+				I2C_GenerateSTOP(i2c_adapter->cfg->regs, ENABLE);         //program the Stop
+				buf_p[index++] = I2C_ReceiveData(i2c_adapter->cfg->regs); //read data N-1
+				I2C_ITConfig(i2c_adapter->cfg->regs, I2C_IT_BUF, ENABLE); //enable TXE to allow the final EV7
 			} else {         //EV7_3
-				I2C_GenerateSTOP(i2c_adapter->cfg->regs, ENABLE);          //program the Stop
-				read_p[index++] = I2C_ReceiveData(i2c_adapter->cfg->regs); //read data N-1
-				read_p[index++] = I2C_ReceiveData(i2c_adapter->cfg->regs); //read data N
+				I2C_GenerateSTOP(i2c_adapter->cfg->regs, ENABLE);         //program the Stop
+				buf_p[index++] = I2C_ReceiveData(i2c_adapter->cfg->regs); //read data N-1
+				buf_p[index++] = I2C_ReceiveData(i2c_adapter->cfg->regs); //read data N
 				index++;     //to show job completed
 			}
 		//EV8_2, which may be due to a subaddress sent or a write completion
-		} else if (writing || subaddress_sent) {
+		} else if ((dir == I2C_Direction_Transmitter) || subaddress_sent) {
 			I2C_GenerateSTOP(i2c_adapter->cfg->regs, ENABLE);  //program the Stop
 			index++;        //to show that the job is complete
 		} else {            //We need to send a subaddress
@@ -503,20 +494,20 @@ void PIOS_I2C_EV_IRQ_Handler(uint32_t i2c_id)
 		//we must wait for the start to clear, otherwise we get constant BTF
 		while (i2c_adapter->cfg->regs->CR1 & I2C_CR1_FLAG_START) { ; }
 	} else if (SR1Reg & I2C_FLAG_RXNE) { //Byte received - EV7
-		read_p[index++] = I2C_ReceiveData(i2c_adapter->cfg->regs);
+		buf_p[index++] = I2C_ReceiveData(i2c_adapter->cfg->regs);
 		if (bytes == (index + 3))
 			I2C_ITConfig(i2c_adapter->cfg->regs, I2C_IT_BUF, DISABLE); //disable TXE to allow the buffer to flush so we can get an EV7_2
 		if (bytes == index) //We have completed a final EV7
 			index++;        //to show job is complete
 	} else if (SR1Reg & I2C_FLAG_TXE) { //Byte transmitted -EV8/EV8_1
-		if (index != -1) {  //we dont have a subaddress to send
-			I2C_SendData(i2c_adapter->cfg->regs, write_p[index++]);
-			if (bytes == index) //we have sent all the data
-				I2C_ITConfig(i2c_adapter->cfg->regs, I2C_IT_BUF, DISABLE); //disable TXE to allow the buffer to flush
-		} else {
+		if (index == -1) {  //we dont have a subaddress to send
 			index++;
 			I2C_SendData(i2c_adapter->cfg->regs, reg); //send the subaddress
-			if (reading || !bytes) //if receiving or sending 0 bytes, flush now
+			if ((dir == I2C_Direction_Receiver) || !bytes) //if receiving or sending 0 bytes, flush now
+				I2C_ITConfig(i2c_adapter->cfg->regs, I2C_IT_BUF, DISABLE); //disable TXE to allow the buffer to flush
+		} else {
+			I2C_SendData(i2c_adapter->cfg->regs, buf_p[index++]);
+			if (bytes == index) //we have sent all the data
 				I2C_ITConfig(i2c_adapter->cfg->regs, I2C_IT_BUF, DISABLE); //disable TXE to allow the buffer to flush
 		}
 	}
@@ -555,7 +546,7 @@ void PIOS_I2C_ER_IRQ_Handler(uint32_t i2c_id)
 	PIOS_Assert(valid);
 
 	volatile uint32_t SR1Reg, SR2Reg;
-	
+
 #ifdef USE_FREERTOS
 	signed portBASE_TYPE pxHigherPriorityTaskWoken = pdFALSE;
 #endif

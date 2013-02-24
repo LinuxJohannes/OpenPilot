@@ -130,11 +130,18 @@ int32_t PIOS_MPU6050_Init(uint32_t i2c_id, uint8_t i2c_addr, const struct pios_m
 	dev->cfg = cfg;
 
 	/* Configure the MPU6050 Sensor */
-	PIOS_MPU6050_Config(cfg);
+	/* MUST be called from FreeRTOS task, because I2C is sychronized
+	   with semaphores. This is the WRONG place for Config function call. */
+	//PIOS_MPU6050_Config(cfg);
 
-	int result = xTaskCreate(PIOS_MPU6050_Task, (const signed char *)"PIOS_MPU6050_Task",
-						 MPU6050_TASK_STACK, NULL, MPU6050_TASK_PRIORITY,
-						 &dev->TaskHandle);
+	int result = xTaskCreate(
+		PIOS_MPU6050_Task,
+		(const signed char *)"PIOS_MPU6050_Task",
+		MPU6050_TASK_STACK,
+		NULL,
+		MPU6050_TASK_PRIORITY,
+		&dev->TaskHandle
+	);
 	PIOS_Assert(result == pdPASS);
 
 	/* Set up EXTI line */
@@ -433,6 +440,10 @@ bool PIOS_MPU6050_IRQHandler(void)
 
 void PIOS_MPU6050_Task(void *parameters)
 {
+	/* Configure the MPU6050 Sensor */
+	/* This is the RIGHT place to configure sensor on I2C bus. */
+	PIOS_MPU6050_Config(dev->cfg);
+
 	while (1)
 	{
 		//Wait for data ready interrupt

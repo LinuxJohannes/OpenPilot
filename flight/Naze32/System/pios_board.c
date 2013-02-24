@@ -128,7 +128,6 @@ static const struct pios_flash_internal_cfg flash_cfg = {
  * initializes all the core subsystems on this specific hardware
  * called from System/openpilot.c
  */
-int32_t init_test;
 void PIOS_Board_Init(void) {
 
 	/* Delay system */
@@ -359,7 +358,6 @@ void PIOS_Board_Init(void) {
 
 #if defined(PIOS_INCLUDE_MPU6050) && defined(PIOS_INCLUDE_I2C)
 	PIOS_MPU6050_Init(pios_i2c_flexi_adapter_id, PIOS_MPU6050_I2C_ADD_A0_LOW, &pios_mpu6050_cfg);
-	init_test = PIOS_MPU6050_Test();
 #endif /* PIOS_INCLUDE_MPU6050 */
 
 	PIOS_GPIO_Init();
